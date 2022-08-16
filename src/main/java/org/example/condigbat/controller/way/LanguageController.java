@@ -3,6 +3,7 @@ package org.example.condigbat.controller.way;
 import org.example.condigbat.payload.AddLanguageDTO;
 import org.example.condigbat.payload.ApiResult;
 import org.example.condigbat.payload.LanguageDTO;
+import org.example.condigbat.payload.ViewDTO;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
@@ -17,8 +18,8 @@ public interface LanguageController {
     ApiResult<LanguageDTO> add(@Valid @RequestBody AddLanguageDTO addLanguageDTO);
 
     //TODO buni POST qilamiz va @RequestBody dan filter, search, sort qilamiz
-    @GetMapping("/list")
-    ApiResult<List<LanguageDTO>> getLanguages();
+    @PostMapping("/list")
+    ApiResult<List<LanguageDTO>> getLanguages(@RequestBody ViewDTO viewDTO);
 
     @GetMapping("/{id}")
     ApiResult<LanguageDTO> getLanguage(@PathVariable @Valid @NotNull(message = "Id must not be null") Integer id);

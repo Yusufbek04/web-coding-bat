@@ -6,9 +6,9 @@ import org.example.condigbat.controller.way.LanguageController;
 import org.example.condigbat.payload.AddLanguageDTO;
 import org.example.condigbat.payload.ApiResult;
 import org.example.condigbat.payload.LanguageDTO;
+import org.example.condigbat.payload.ViewDTO;
 import org.example.condigbat.service.serviceInt.LanguageService;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.List;
 
@@ -31,8 +31,8 @@ public class LanguageControllerImpl implements LanguageController {
     }
 
     @Override
-    public ApiResult<List<LanguageDTO>> getLanguages() {
-        return languageService.getLanguages();
+    public ApiResult<List<LanguageDTO>> getLanguages(ViewDTO viewDTO) {
+        return languageService.getLanguages(viewDTO);
     }
 
     @Override
