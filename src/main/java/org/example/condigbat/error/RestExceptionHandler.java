@@ -9,6 +9,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,6 +41,13 @@ public class RestExceptionHandler {
 
         ApiResult<List<ErrorData>> apiResult = ApiResult.failResponse(errorDataList);
         return new ResponseEntity<>(apiResult, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(value = MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResult<List<ErrorData>>> exceptionHandler(MethodArgumentTypeMismatchException ex){
+
+        ErrorData errorData = new ErrorData(ex.getMessage(),HttpStatus.BAD_REQUEST.value(),ex.getName());
+        return new ResponseEntity<>(ApiResult.failResponse(List.of(errorData)), HttpStatus.BAD_REQUEST);
     }
 
 }

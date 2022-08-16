@@ -21,7 +21,7 @@ public interface LanguageController {
     ApiResult<List<LanguageDTO>> getLanguages();
 
     @GetMapping("/{id}")
-    ApiResult<LanguageDTO> getLanguage(@PathVariable @NotNull(message = "Id must not be null") Integer id);
+    ApiResult<LanguageDTO> getLanguage(@PathVariable @Valid @NotNull(message = "Id must not be null") Integer id);
 
     @DeleteMapping("/{id}")
     ApiResult<Boolean> delete(@PathVariable Integer id);
