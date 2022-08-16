@@ -16,4 +16,9 @@ public class Language extends AbsTitleIntegerEntity {
 
     @Column(unique = true, nullable = false)
     private String url;
+
+    @PrePersist
+    private void makeUrl(){
+        this.url = getTitle();
+    }
 }
