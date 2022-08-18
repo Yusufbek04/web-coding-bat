@@ -9,7 +9,7 @@ import java.io.Serializable;
 @AllArgsConstructor
 @NoArgsConstructor
 @ToString
-public class LanguageDTO implements Serializable {
+public class LanguageDTO {
 
     private Integer id;
 
@@ -32,4 +32,5 @@ public class LanguageDTO implements Serializable {
     public LanguageDTO(Integer id) {
         this.id = id;
     }
+
 }
