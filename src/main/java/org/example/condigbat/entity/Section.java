@@ -13,7 +13,7 @@ import javax.persistence.*;
 @Table(uniqueConstraints = @UniqueConstraint(columnNames = {"title", "language_id"}))
 public class Section extends AbsTitleIntegerEntity {
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false)
     private String url;
 
     @Column(nullable = false, columnDefinition = "text")

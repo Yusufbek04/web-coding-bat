@@ -14,7 +14,7 @@ import java.util.List;
 @Setter
 @Table(uniqueConstraints =
 @UniqueConstraint(
-        columnNames = {"methodSignature", "section_id"}
+        columnNames = {"title", "section_id"}
 ))
 public class Problem extends AbsTitleIntegerEntity {
 

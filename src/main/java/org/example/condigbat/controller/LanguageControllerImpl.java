@@ -7,6 +7,7 @@ import org.example.condigbat.payload.AddLanguageDTO;
 import org.example.condigbat.payload.ApiResult;
 import org.example.condigbat.payload.LanguageDTO;
 import org.example.condigbat.payload.ViewDTO;
+import org.example.condigbat.projection.LanguageDTOProjection;
 import org.example.condigbat.service.serviceInt.LanguageService;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -31,8 +32,8 @@ public class LanguageControllerImpl implements LanguageController {
     }
 
     @Override
-    public ApiResult<List<LanguageDTO>> getLanguages(ViewDTO viewDTO) {
-        return languageService.getLanguages(viewDTO);
+    public ApiResult<List<LanguageDTOProjection>> getLanguages(ViewDTO viewDTO, int page, int size) {
+        return languageService.getLanguages(viewDTO,page, size);
     }
 
     @Override

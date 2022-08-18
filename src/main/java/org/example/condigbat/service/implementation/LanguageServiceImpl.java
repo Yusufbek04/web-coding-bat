@@ -4,9 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.condigbat.entity.Language;
 import org.example.condigbat.error.RestException;
 import org.example.condigbat.payload.*;
-import org.example.condigbat.payload.enums.ConditionTypeEnum;
-import org.example.condigbat.payload.enums.OperatorTypeEnum;
-import org.example.condigbat.payload.enums.SortingTypeEnum;
+import org.example.condigbat.projection.LanguageDTOProjection;
 import org.example.condigbat.repository.LanguageRepository;
 import org.example.condigbat.repository.SectionRepository;
 import org.example.condigbat.repository.UserProblemRepository;
@@ -16,20 +14,38 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class LanguageServiceImpl implements LanguageService {
 
     public static void main(String[] args) {
-        Set<LanguageDTO> res = new HashSet<>();
 
-        res.add(new LanguageDTO(1));
-        LanguageDTO next = res.iterator().next();
-        System.out.println(next);
+        String order = "worldabcefghijkmnpqstuvxyz";
+        Map<String, Integer> map = new HashMap<>();
+        Map<String, Integer> res = new HashMap<>();
+
+
+        String[] words = new String[]{"word","world","row"};
+
+        for (int i = 0; i < order.length(); i++)
+            map.put(String.valueOf(order.charAt(i)), order.indexOf(order.charAt(i)));
+
+        for (int i = 0; i < words.length; i++) {
+            for (int j = 0; j < words[i].length(); j++) {
+                if (res.get(words[i].charAt(j)) == null) {
+                    res.put(String.valueOf(words[i].charAt(j)), order.indexOf(words[i].charAt(j)));
+                    System.out.println(map);
+                }
+                if (res.get(words[i].charAt(j)) > map.get(words[i].charAt(j))) {
+                    System.out.println(false);
+                }
+            }
+        }
+
+
+        System.out.println(true);
     }
-
 
     private final LanguageRepository languageRepository;
 
@@ -57,28 +73,37 @@ public class LanguageServiceImpl implements LanguageService {
     }
 
     @Override
-    public ApiResult<List<LanguageDTO>> getLanguages(ViewDTO viewDTO) {
-        List<LanguageDTO> res = new ArrayList<>();
+    public ApiResult<List<LanguageDTOProjection>> getLanguages(ViewDTO viewDTO, int page, int size) {
+        StringBuilder stringBuilder = new StringBuilder(
+                "with temp as(" +
+                        "          SELECT l.*," +
+                        "          COUNT(s.id)                               AS section_count," +
+                        "          COUNT(p.id)                               AS problem_count," +
+                        "          COUNT(up.id)                              AS try_count," +
+                        "          COUNT(CASE WHEN up.solved THEN up.id END) AS solution_count" +
+                        "                         FROM language l" +
+                        "                                 LEFT JOIN section s on l.id = s.language_id" +
+                        "                                 LEFT JOIN problem p on s.id = p.section_id" +
+                        "                                 LEFT JOIN user_problem up on p.id = up.problem_id" +
+                        "" +
+                        " GROUP BY l.id)" +
+                        "SELECT * FROM temp"
+        );
 
-        for (Language language : languageRepository.findAll()) {
-            res.add(mapLanguageToLanguageDTO(language,
-                    sectionRepository.countAllByLanguage_Id(language.getId()),
-                    userProblemRepository.countAllByProblem_SectionLanguageId(language.getId()),
-                    userProblemRepository.
-                            countAllBySolvedIsTrueAndProblem_SectionLanguageId(language.getId())));
+//        if (Objects.isNull(viewDTO) || (viewDTO.getFiltering().getColumns().isEmpty()
+//                && viewDTO.getSearching().getValue().isBlank() && viewDTO.getSorting().isEmpty()))
+//            stringBuilder.append(" GROUP BY l.id, l.title ORDER BY title");
 
-        }
-        if (viewDTO.getSearching() != null)
-            res = search(viewDTO.getSearching(), res);
-
-        if (viewDTO.getFiltering() != null && viewDTO.getFiltering().getOperatorType() == OperatorTypeEnum.AND)
-            res = filterAnd(viewDTO.getFiltering(), res);
-        else if (viewDTO.getFiltering() != null)
-            res = filterOr(viewDTO.getFiltering(), res);
-        if (viewDTO.getSorting() != null)
-            res = sort(viewDTO.getSorting(), res);
-
-        return ApiResult.successResponse(res);
+        filtering(viewDTO, stringBuilder);
+        stringBuilder
+                .append(" LIMIT ")
+                .append(size)
+                .append(" OFFSET ")
+                .append(page * size);
+        String query = stringBuilder.toString();
+        System.out.println(query);
+        List<LanguageDTOProjection> languagesByStringQuery = languageRepository.getLanguagesByStringQuery(query);
+        return ApiResult.successResponse(languagesByStringQuery);
     }
 
     @Override
@@ -126,10 +151,7 @@ public class LanguageServiceImpl implements LanguageService {
         return ApiResult.successResponse(languageDTO);
     }
 
-    private LanguageDTO mapLanguageToLanguageDTO(Language language,
-                                                 int sectionCount,
-                                                 long tryCount,
-                                                 long solvedCount) {
+    private LanguageDTO mapLanguageToLanguageDTO(Language language, int sectionCount, long tryCount, long solvedCount) {
         return new LanguageDTO(
                 language.getId(),
                 language.getTitle(),
@@ -139,258 +161,90 @@ public class LanguageServiceImpl implements LanguageService {
                 solvedCount);
     }
 
-    private List<LanguageDTO> search(SearchingDTO searchingDTO, List<LanguageDTO> list) {
+    private void filtering(ViewDTO viewDTO, StringBuilder value) {
 
-        if (searchingDTO.getColumns().size() == 2) {
-            list = list.stream().filter(x -> x.getTitle().contains(searchingDTO.getValue()) ||
-                    x.getUrl().contains(searchingDTO.getValue())).collect(Collectors.toList());
-        } else if (searchingDTO.getColumns().size() == 1) {
-            if (searchingDTO.getColumns().get(0).equals("title")) {
-                list = list.stream().filter(x -> x.getTitle().contains(searchingDTO.getValue())).collect(Collectors.toList());
-            } else if (searchingDTO.getColumns().get(0).equals("url")) {
-                list = list.stream().filter(x -> x.getUrl().contains(searchingDTO.getValue())).collect(Collectors.toList());
-            } else
-                throw RestException.restThrow("select only title or url", HttpStatus.NOT_FOUND);
+        boolean isPutConditionType = false;
+
+        if (Objects.isNull(viewDTO))
+            return;
+
+        value.append(" WHERE ");
+        if (!viewDTO.getSearching().getColumns().isEmpty()) {
+            value.append("(");
+            for (int i = 0; i < viewDTO.getSearching().getColumns().size(); i++) {
+                value.append(" ");
+                value.append(viewDTO.getSearching().getColumns().get(i));
+                value.append(" ilike '%");
+                value.append(viewDTO.getSearching().getValue());
+                value.append("%'");
+                value.append(i + 1 == viewDTO.getSearching().getColumns().size() ? "" : " OR ");
+            }
+            value.append(")");
+            isPutConditionType = true;
         }
-        return list;
+        if (!viewDTO.getFiltering().getColumns().isEmpty()) {
+            if (isPutConditionType)
+                value.append(" AND ");
+            value.append("(");
+            String con = viewDTO.getFiltering().getOperatorType().name();
+            for (int i = 0; i < viewDTO.getFiltering().getColumns().size(); i++) {
+                if (i != 0)
+                    value.append(con);
+                value.append(" ");
+                value.append(viewDTO.getFiltering().getColumns().get(i).getTitle());
+                value.append(" ");
+                value.append(conditionType(viewDTO.getFiltering().getColumns().get(i).getConditionType().name(), viewDTO.getFiltering().getColumns().get(i)));
+                value.append(" ");
+            }
+            value.append(")");
+        }
+        if (!viewDTO.getSorting().isEmpty()) {
+            if (isPutConditionType)
+                value.append(" AND ");
+            value.append(" ORDER BY ");
+            for (int i = 0; i < viewDTO.getSorting().size(); i++) {
+                if (i != 0)
+                    value.append(", ");
+                value.append(viewDTO.getSorting().get(i).getName());
+                value.append(" ");
+                value.append(viewDTO.getSorting().get(i).getType());
+            }
+        } else {
+            value.append(" ORDER BY title");
+        }
     }
 
-    private List<LanguageDTO> sort(List<SortingDTO> sortingDTOS, List<LanguageDTO> languageDTOS) {
-
-        Collections.sort(languageDTOS, new Comparator<LanguageDTO>() {
-            @Override
-            public int compare(LanguageDTO o1, LanguageDTO o2) {
-                if (sortingDTOS == null || sortingDTOS.size() == 0)
-                    return 1;
-                int num;
-                for (SortingDTO sortingDTO : sortingDTOS) {
-                    int asc = sortingDTO.getType() == SortingTypeEnum.ASC ? 1 : -1;
-                    switch (sortingDTO.getName()) {
-                        case "id" -> {
-                            num = o1.getId().compareTo(o2.getId());
-                            if (num != 0)
-                                return asc * num;
-                        }
-                        case "title" -> {
-                            num = o1.getTitle().compareTo(o2.getTitle());
-                            if (num != 0)
-                                return asc * num;
-                        }
-                        case "url" -> {
-                            num = o1.getUrl().compareTo(o2.getUrl());
-                            if (num != 0)
-                                return asc * num;
-                        }
-                        case "sectionCount" -> {
-                            num = o1.getSectionCount().compareTo(o2.getSectionCount());
-                            if (num != 0)
-                                return asc * num;
-                        }
-                        case "tryCount" -> {
-                            num = o1.getTryCount().compareTo(o2.getTryCount());
-                            if (num != 0)
-                                return asc * num;
-                        }
-                        case "solutionCount" -> {
-                            num = o1.getSolutionCount().compareTo(o2.getSolutionCount());
-                            if (num != 0)
-                                return asc * num;
-                        }
-                        default -> throw new IllegalArgumentException();
-                    }
-                }
-                return 1;
+    private String conditionType(String str, FilterColumnDTO filterDTO) {
+        switch (str) {
+            case "EQ" -> {
+                return "= " + filterDTO.getValue();
             }
-        });
-
-        return languageDTOS;
-    }
-
-
-    private List<LanguageDTO> filterAnd(FilterDTO filterDTO, List<LanguageDTO> a) {
-        Set<LanguageDTO> languagesDTO = new HashSet<>(a);
-
-        for (FilterColumnDTO column : filterDTO.getColumns()) {
-            switch (column.getTitle()) {
-                case "title":
-                    if (column.getConditionType() == ConditionTypeEnum.CONTAINS) {
-                        languagesDTO = languagesDTO.stream().filter(x ->
-                                x.getTitle().contains(column.getValue())
-                        ).collect(Collectors.toSet());
-                    } else if (column.getConditionType() == ConditionTypeEnum.NOT_CONTAINS) {
-                        languagesDTO = languagesDTO.stream().filter(x ->
-                                !x.getTitle().contains(column.getValue())
-                        ).collect(Collectors.toSet());
-                    } else
-                        throw RestException.restThrow(column.getConditionType() +
-                                " condition not found", HttpStatus.NOT_FOUND);
-                    break;
-                case "url":
-                    if (column.getConditionType() == ConditionTypeEnum.CONTAINS) {
-                        languagesDTO = languagesDTO.stream().filter(x -> x.getUrl().contains(column.getValue())).collect(Collectors.toSet());
-                    } else if (column.getConditionType() == ConditionTypeEnum.NOT_CONTAINS) {
-                        languagesDTO = languagesDTO.stream().filter(x -> !x.getUrl().contains(column.getValue())).collect(Collectors.toSet());
-                    } else
-                        throw RestException.restThrow(column.getConditionType() +
-                                " condition not found", HttpStatus.NOT_FOUND);
-                    break;
-                case "tryCount":
-                    if (column.getConditionType() == ConditionTypeEnum.EQ)
-                        languagesDTO = languagesDTO.stream().
-                                filter(x -> x.getTryCount().equals(Long.valueOf(column.getValue()))).
-                                collect(Collectors.toSet());
-                    else if (column.getConditionType() == ConditionTypeEnum.NOT_EQ)
-                        languagesDTO = languagesDTO.stream().filter(x -> !x.getTryCount().equals(Long.valueOf(column.getValue()))).collect(Collectors.toSet());
-                    else if (column.getConditionType() == ConditionTypeEnum.GT)
-                        languagesDTO = languagesDTO.stream().filter(x -> x.getTryCount() > (Long.parseLong(column.getValue()))).collect(Collectors.toSet());
-                    else if (column.getConditionType() == ConditionTypeEnum.GTE)
-                        languagesDTO = languagesDTO.stream().filter(x -> x.getTryCount() >= (Long.parseLong(column.getValue()))).collect(Collectors.toSet());
-                    else if (column.getConditionType() == ConditionTypeEnum.LT)
-                        languagesDTO = languagesDTO.stream().filter(x -> x.getTryCount() < (Long.parseLong(column.getValue()))).collect(Collectors.toSet());
-                    else if (column.getConditionType() == ConditionTypeEnum.LTE)
-                        languagesDTO = languagesDTO.stream().filter(x -> x.getTryCount() <= (Long.parseLong(column.getValue()))).collect(Collectors.toSet());
-                    else if (column.getConditionType() == ConditionTypeEnum.RA)
-                        languagesDTO = languagesDTO.stream().filter(x -> x.getTryCount() >= Long.parseLong(column.getFrom()) &&
-                                x.getTryCount() <= Long.parseLong(column.getFrom())).collect(Collectors.toSet());
-                    else
-                        throw RestException.restThrow("condition not found", HttpStatus.NOT_FOUND);
-                    break;
-                case "solutionCount":
-                    if (column.getConditionType() == ConditionTypeEnum.EQ)
-                        languagesDTO = languagesDTO.stream().filter(x -> x.getSolutionCount().equals(Long.valueOf(column.getValue()))).collect(Collectors.toSet());
-                    else if (column.getConditionType() == ConditionTypeEnum.NOT_EQ)
-                        languagesDTO = languagesDTO.stream().filter(x -> !x.getSolutionCount().equals(Long.valueOf(column.getValue()))).collect(Collectors.toSet());
-                    else if (column.getConditionType() == ConditionTypeEnum.GT)
-                        languagesDTO = languagesDTO.stream().filter(x -> x.getSolutionCount() > (Long.parseLong(column.getValue()))).collect(Collectors.toSet());
-                    else if (column.getConditionType() == ConditionTypeEnum.GTE)
-                        languagesDTO = languagesDTO.stream().filter(x -> x.getSolutionCount() >= (Long.parseLong(column.getValue()))).collect(Collectors.toSet());
-                    else if (column.getConditionType() == ConditionTypeEnum.LT)
-                        languagesDTO = languagesDTO.stream().filter(x -> x.getSolutionCount() < (Long.parseLong(column.getValue()))).collect(Collectors.toSet());
-                    else if (column.getConditionType() == ConditionTypeEnum.LTE)
-                        languagesDTO = languagesDTO.stream().filter(x -> x.getSolutionCount() <= (Long.parseLong(column.getValue()))).collect(Collectors.toSet());
-                    else if (column.getConditionType() == ConditionTypeEnum.RA)
-                        languagesDTO = languagesDTO.stream().filter(x -> x.getSolutionCount() >= Long.parseLong(column.getFrom()) &&
-                                x.getSolutionCount() <= Long.parseLong(column.getFrom())).collect(Collectors.toSet());
-                    else
-                        throw RestException.restThrow("condition not found", HttpStatus.NOT_FOUND);
-                    break;
-                case "sectionCount":
-                    if (column.getConditionType() == ConditionTypeEnum.EQ)
-                        languagesDTO = languagesDTO.stream().filter(x -> x.getSectionCount().equals(Integer.valueOf(column.getValue()))).collect(Collectors.toSet());
-                    else if (column.getConditionType() == ConditionTypeEnum.NOT_EQ)
-                        languagesDTO = languagesDTO.stream().filter(x -> !x.getSectionCount().equals(Integer.valueOf(column.getValue()))).collect(Collectors.toSet());
-                    else if (column.getConditionType() == ConditionTypeEnum.GT)
-                        languagesDTO = languagesDTO.stream().filter(x -> x.getSectionCount() > (Long.parseLong(column.getValue()))).collect(Collectors.toSet());
-                    else if (column.getConditionType() == ConditionTypeEnum.GTE)
-                        languagesDTO = languagesDTO.stream().filter(x -> x.getSectionCount() >= (Long.parseLong(column.getValue()))).collect(Collectors.toSet());
-                    else if (column.getConditionType() == ConditionTypeEnum.LT)
-                        languagesDTO = languagesDTO.stream().filter(x -> x.getSectionCount() < (Long.parseLong(column.getValue()))).collect(Collectors.toSet());
-                    else if (column.getConditionType() == ConditionTypeEnum.LTE)
-                        languagesDTO = languagesDTO.stream().filter(x -> x.getSectionCount() <= (Long.parseLong(column.getValue()))).collect(Collectors.toSet());
-                    else if (column.getConditionType() == ConditionTypeEnum.RA)
-                        languagesDTO = languagesDTO.stream().filter(x -> x.getSectionCount() >= Long.parseLong(column.getFrom()) &&
-                                x.getSectionCount() <= Long.parseLong(column.getFrom())).collect(Collectors.toSet());
-                    else
-                        throw RestException.restThrow("condition not found", HttpStatus.NOT_FOUND);
-                    break;
-                default:
-                    throw RestException.restThrow("column not found", HttpStatus.NOT_FOUND);
+            case "NOT_EQ" -> {
+                return "<> " + filterDTO.getValue();
+            }
+            case "CONTAINS" -> {
+                return "iLike '%" + filterDTO.getValue() + "%'";
+            }
+            case "NOT_CONTAINS" -> {
+                return "not iLike '%" + filterDTO.getValue() + "%'";
+            }
+            case "GTE" -> {
+                return ">= " + filterDTO.getValue();
+            }
+            case "GT" -> {
+                return "> " + filterDTO.getValue();
+            }
+            case "LTE" -> {
+                return "<= " + filterDTO.getValue();
+            }
+            case "LT" -> {
+                return "< " + filterDTO.getValue();
+            }
+            case "RA" -> {
+                return "between " + filterDTO.getFrom() + " and " + filterDTO.getTill();
             }
         }
-        return languagesDTO.stream().toList();
-    }
-
-    private List<LanguageDTO> filterOr(FilterDTO filterDTO, List<LanguageDTO> a) {
-        Set<LanguageDTO> languagesDTO = new HashSet<>(a);
-        Set<LanguageDTO> res = new HashSet<>();
-
-        for (FilterColumnDTO column : filterDTO.getColumns()) {
-            switch (column.getTitle()) {
-                case "title":
-                    if (column.getConditionType() == ConditionTypeEnum.CONTAINS) {
-                        res.add(languagesDTO.stream().filter(x ->
-                                x.getTitle().contains(column.getValue())
-                        ).iterator().next());
-                    } else if (column.getConditionType() == ConditionTypeEnum.NOT_CONTAINS) {
-                        res.add(languagesDTO.stream().filter(x ->
-                                !x.getTitle().contains(column.getValue())
-                        ).iterator().next());
-                    } else
-                        throw RestException.restThrow(column.getConditionType() +
-                                " condition not found", HttpStatus.NOT_FOUND);
-                    break;
-                case "url":
-                    if (column.getConditionType() == ConditionTypeEnum.CONTAINS) {
-                        res.add(languagesDTO.stream().filter(x -> x.getUrl().contains(column.getValue())).iterator().next());
-                    } else if (column.getConditionType() == ConditionTypeEnum.NOT_CONTAINS) {
-                        res.add(languagesDTO.stream().filter(x -> !x.getUrl().contains(column.getValue())).iterator().next());
-                    } else
-                        throw RestException.restThrow(column.getConditionType() +
-                                " condition not found", HttpStatus.NOT_FOUND);
-                    break;
-                case "tryCount":
-                    if (column.getConditionType() == ConditionTypeEnum.EQ)
-                        res.add(languagesDTO.stream().
-                                filter(x -> x.getTryCount().equals(Long.valueOf(column.getValue()))).iterator().next());
-                    else if (column.getConditionType() == ConditionTypeEnum.NOT_EQ)
-                        res.add(languagesDTO.stream().filter(x -> !x.getTryCount().equals(Long.valueOf(column.getValue()))).iterator().next());
-                    else if (column.getConditionType() == ConditionTypeEnum.GT)
-                        res.add(languagesDTO.stream().filter(x -> x.getTryCount() > (Long.parseLong(column.getValue()))).iterator().next());
-                    else if (column.getConditionType() == ConditionTypeEnum.GTE)
-                        res.add(languagesDTO.stream().filter(x -> x.getTryCount() >= (Long.parseLong(column.getValue()))).iterator().next());
-                    else if (column.getConditionType() == ConditionTypeEnum.LT)
-                        res.add(languagesDTO.stream().filter(x -> x.getTryCount() < (Long.parseLong(column.getValue()))).iterator().next());
-                    else if (column.getConditionType() == ConditionTypeEnum.LTE)
-                        res.add(languagesDTO.stream().filter(x -> x.getTryCount() <= (Long.parseLong(column.getValue()))).iterator().next());
-                    else if (column.getConditionType() == ConditionTypeEnum.RA)
-                        res.add(languagesDTO.stream().filter(x -> x.getTryCount() >= Long.parseLong(column.getFrom()) &&
-                                x.getTryCount() <= Long.parseLong(column.getFrom())).iterator().next());
-                    else
-                        throw RestException.restThrow("condition not found", HttpStatus.NOT_FOUND);
-                    break;
-                case "solutionCount":
-                    if (column.getConditionType() == ConditionTypeEnum.EQ)
-                        res.add(languagesDTO.stream().filter(x -> x.getSolutionCount().equals(Long.valueOf(column.getValue()))).iterator().next());
-                    else if (column.getConditionType() == ConditionTypeEnum.NOT_EQ)
-                        res.add(languagesDTO.stream().filter(x -> !x.getSolutionCount().equals(Long.valueOf(column.getValue()))).iterator().next());
-                    else if (column.getConditionType() == ConditionTypeEnum.GT)
-                        res.add(languagesDTO.stream().filter(x -> x.getSolutionCount() > (Long.parseLong(column.getValue()))).iterator().next());
-                    else if (column.getConditionType() == ConditionTypeEnum.GTE)
-                        res.add(languagesDTO.stream().filter(x -> x.getSolutionCount() >= (Long.parseLong(column.getValue()))).iterator().next());
-                    else if (column.getConditionType() == ConditionTypeEnum.LT)
-                        res.add(languagesDTO.stream().filter(x -> x.getSolutionCount() < (Long.parseLong(column.getValue()))).iterator().next());
-                    else if (column.getConditionType() == ConditionTypeEnum.LTE)
-                        res.add(languagesDTO.stream().filter(x -> x.getSolutionCount() <= (Long.parseLong(column.getValue()))).iterator().next());
-                    else if (column.getConditionType() == ConditionTypeEnum.RA)
-                        res.add(languagesDTO.stream().filter(x -> x.getSolutionCount() >= Long.parseLong(column.getFrom()) &&
-                                x.getSolutionCount() <= Long.parseLong(column.getFrom())).iterator().next());
-                    else
-                        throw RestException.restThrow("condition not found", HttpStatus.NOT_FOUND);
-                    break;
-                case "sectionCount":
-                    if (column.getConditionType() == ConditionTypeEnum.EQ)
-                        res.add(languagesDTO.stream().filter(x -> x.getSectionCount().equals(Integer.valueOf(column.getValue()))).iterator().next());
-                    else if (column.getConditionType() == ConditionTypeEnum.NOT_EQ)
-                        res.add(languagesDTO.stream().filter(x -> !x.getSectionCount().equals(Integer.valueOf(column.getValue()))).iterator().next());
-                    else if (column.getConditionType() == ConditionTypeEnum.GT)
-                        res.add(languagesDTO.stream().filter(x -> x.getSectionCount() > (Long.parseLong(column.getValue()))).iterator().next());
-                    else if (column.getConditionType() == ConditionTypeEnum.GTE)
-                        res.add(languagesDTO.stream().filter(x -> x.getSectionCount() >= (Long.parseLong(column.getValue()))).iterator().next());
-                    else if (column.getConditionType() == ConditionTypeEnum.LT)
-                        res.add(languagesDTO.stream().filter(x -> x.getSectionCount() < (Long.parseLong(column.getValue()))).iterator().next());
-                    else if (column.getConditionType() == ConditionTypeEnum.LTE)
-                        res.add(languagesDTO.stream().filter(x -> x.getSectionCount() <= (Long.parseLong(column.getValue()))).iterator().next());
-                    else if (column.getConditionType() == ConditionTypeEnum.RA)
-                        res.add(languagesDTO.stream().filter(x -> x.getSectionCount() >= Long.parseLong(column.getFrom()) &&
-                                x.getSectionCount() <= Long.parseLong(column.getFrom())).iterator().next());
-                    else
-                        throw RestException.restThrow("condition not found", HttpStatus.NOT_FOUND);
-                    break;
-                default:
-                    throw RestException.restThrow("column not found", HttpStatus.NOT_FOUND);
-            }
-        }
-        return res.stream().toList();
+        throw RestException.restThrow(str + " condition not found", HttpStatus.NOT_FOUND);
     }
 
 }
