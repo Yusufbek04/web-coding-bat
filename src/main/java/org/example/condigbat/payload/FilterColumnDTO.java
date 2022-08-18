@@ -9,7 +9,7 @@ import javax.persistence.Enumerated;
 @Getter
 public class FilterColumnDTO {
 
-    private String title;
+    private String name;
 
     @Enumerated(value = EnumType.STRING)
     private ConditionTypeEnum conditionType;

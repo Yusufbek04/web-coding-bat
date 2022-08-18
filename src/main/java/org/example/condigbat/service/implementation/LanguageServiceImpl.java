@@ -164,16 +164,17 @@ public class LanguageServiceImpl implements LanguageService {
     private void filtering(ViewDTO viewDTO, StringBuilder value) {
 
         boolean isPutConditionType = false;
+        boolean needWhere = false;
 
         if (Objects.isNull(viewDTO))
             return;
-
         value.append(" WHERE ");
         if (!viewDTO.getSearching().getColumns().isEmpty()) {
+            needWhere = true;
             value.append("(");
             for (int i = 0; i < viewDTO.getSearching().getColumns().size(); i++) {
                 value.append(" ");
-                value.append(viewDTO.getSearching().getColumns().get(i));
+                value.append(viewDTO.getSearching().getColumns().get(i).replaceAll("Count","_count"));
                 value.append(" ilike '%");
                 value.append(viewDTO.getSearching().getValue());
                 value.append("%'");
@@ -183,6 +184,7 @@ public class LanguageServiceImpl implements LanguageService {
             isPutConditionType = true;
         }
         if (!viewDTO.getFiltering().getColumns().isEmpty()) {
+            needWhere = true;
             if (isPutConditionType)
                 value.append(" AND ");
             value.append("(");
@@ -191,7 +193,7 @@ public class LanguageServiceImpl implements LanguageService {
                 if (i != 0)
                     value.append(con);
                 value.append(" ");
-                value.append(viewDTO.getFiltering().getColumns().get(i).getTitle());
+                value.append(viewDTO.getFiltering().getColumns().get(i).getName().replaceAll("Count","_count"));
                 value.append(" ");
                 value.append(conditionType(viewDTO.getFiltering().getColumns().get(i).getConditionType().name(), viewDTO.getFiltering().getColumns().get(i)));
                 value.append(" ");
@@ -199,13 +201,15 @@ public class LanguageServiceImpl implements LanguageService {
             value.append(")");
         }
         if (!viewDTO.getSorting().isEmpty()) {
-            if (isPutConditionType)
-                value.append(" AND ");
+            if (!needWhere){
+                int index = value.indexOf("WHERE");
+                value.replace(index, index + 5, "");
+            }
             value.append(" ORDER BY ");
             for (int i = 0; i < viewDTO.getSorting().size(); i++) {
                 if (i != 0)
                     value.append(", ");
-                value.append(viewDTO.getSorting().get(i).getName());
+                value.append(viewDTO.getSorting().get(i).getName().replaceAll("Count","_count"));
                 value.append(" ");
                 value.append(viewDTO.getSorting().get(i).getType());
             }
