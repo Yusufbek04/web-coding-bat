@@ -4,12 +4,14 @@ import lombok.RequiredArgsConstructor;
 import org.example.condigbat.entity.Language;
 import org.example.condigbat.error.RestException;
 import org.example.condigbat.payload.*;
+import org.example.condigbat.payload.enums.ConditionTypeEnum;
 import org.example.condigbat.projection.LanguageDTOProjection;
 import org.example.condigbat.repository.LanguageRepository;
 import org.example.condigbat.repository.SectionRepository;
 import org.example.condigbat.repository.UserProblemRepository;
 import org.example.condigbat.service.serviceInt.LanguageService;
 import org.example.condigbat.util.CommonUtils;
+import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -19,33 +21,6 @@ import java.util.*;
 @RequiredArgsConstructor
 public class LanguageServiceImpl implements LanguageService {
 
-    public static void main(String[] args) {
-
-        String order = "worldabcefghijkmnpqstuvxyz";
-        Map<String, Integer> map = new HashMap<>();
-        Map<String, Integer> res = new HashMap<>();
-
-
-        String[] words = new String[]{"word","world","row"};
-
-        for (int i = 0; i < order.length(); i++)
-            map.put(String.valueOf(order.charAt(i)), order.indexOf(order.charAt(i)));
-
-        for (int i = 0; i < words.length; i++) {
-            for (int j = 0; j < words[i].length(); j++) {
-                if (res.get(words[i].charAt(j)) == null) {
-                    res.put(String.valueOf(words[i].charAt(j)), order.indexOf(words[i].charAt(j)));
-                    System.out.println(map);
-                }
-                if (res.get(words[i].charAt(j)) > map.get(words[i].charAt(j))) {
-                    System.out.println(false);
-                }
-            }
-        }
-
-
-        System.out.println(true);
-    }
 
     private final LanguageRepository languageRepository;
 
@@ -89,10 +64,6 @@ public class LanguageServiceImpl implements LanguageService {
                         " GROUP BY l.id)" +
                         "SELECT * FROM temp"
         );
-
-//        if (Objects.isNull(viewDTO) || (viewDTO.getFiltering().getColumns().isEmpty()
-//                && viewDTO.getSearching().getValue().isBlank() && viewDTO.getSorting().isEmpty()))
-//            stringBuilder.append(" GROUP BY l.id, l.title ORDER BY title");
 
         filtering(viewDTO, stringBuilder);
         stringBuilder
@@ -151,6 +122,11 @@ public class LanguageServiceImpl implements LanguageService {
         return ApiResult.successResponse(languageDTO);
     }
 
+
+    /**
+     * Hello World
+     */
+
     private LanguageDTO mapLanguageToLanguageDTO(Language language, int sectionCount, long tryCount, long solvedCount) {
         return new LanguageDTO(
                 language.getId(),
@@ -162,10 +138,8 @@ public class LanguageServiceImpl implements LanguageService {
     }
 
     private void filtering(ViewDTO viewDTO, StringBuilder value) {
-
         boolean isPutConditionType = false;
         boolean needWhere = false;
-
         if (Objects.isNull(viewDTO))
             return;
         value.append(" WHERE ");
@@ -173,12 +147,12 @@ public class LanguageServiceImpl implements LanguageService {
             needWhere = true;
             value.append("(");
             for (int i = 0; i < viewDTO.getSearching().getColumns().size(); i++) {
-                value.append(" ");
-                value.append(viewDTO.getSearching().getColumns().get(i).replaceAll("Count","_count"));
-                value.append(" ilike '%");
-                value.append(viewDTO.getSearching().getValue());
-                value.append("%'");
-                value.append(i + 1 == viewDTO.getSearching().getColumns().size() ? "" : " OR ");
+                value.append(" ")
+                        .append(viewDTO.getSearching().getColumns().get(i).replaceAll("Count", "_count"))
+                        .append(" iLike '%")
+                        .append(viewDTO.getSearching().getValue())
+                        .append("%'")
+                        .append(i + 1 == viewDTO.getSearching().getColumns().size() ? "" : " OR ");
             }
             value.append(")");
             isPutConditionType = true;
@@ -192,63 +166,43 @@ public class LanguageServiceImpl implements LanguageService {
             for (int i = 0; i < viewDTO.getFiltering().getColumns().size(); i++) {
                 if (i != 0)
                     value.append(con);
-                value.append(" ");
-                value.append(viewDTO.getFiltering().getColumns().get(i).getName().replaceAll("Count","_count"));
-                value.append(" ");
-                value.append(conditionType(viewDTO.getFiltering().getColumns().get(i).getConditionType().name(), viewDTO.getFiltering().getColumns().get(i)));
-                value.append(" ");
+                value.append(" ")
+                        .append(viewDTO.getFiltering().getColumns().get(i).getName().replaceAll("Count", "_count"))
+                        .append(" ")
+                        .append(conditionType(viewDTO.getFiltering().getColumns().get(i).getConditionType(), viewDTO.getFiltering().getColumns().get(i)))
+                        .append(" ");
             }
             value.append(")");
         }
         if (!viewDTO.getSorting().isEmpty()) {
-            if (!needWhere){
-                int index = value.indexOf("WHERE");
-                value.replace(index, index + 5, "");
-            }
+
             value.append(" ORDER BY ");
             for (int i = 0; i < viewDTO.getSorting().size(); i++) {
                 if (i != 0)
                     value.append(", ");
-                value.append(viewDTO.getSorting().get(i).getName().replaceAll("Count","_count"));
-                value.append(" ");
-                value.append(viewDTO.getSorting().get(i).getType());
+                value.append(viewDTO.getSorting().get(i).getName().replaceAll("Count", "_count"))
+                        .append(" ")
+                        .append(viewDTO.getSorting().get(i).getType());
             }
-        } else {
+        } else
             value.append(" ORDER BY title");
+        if (!needWhere) {
+            int index = value.indexOf("WHERE");
+            value.replace(index, index + 5, "");
         }
     }
 
-    private String conditionType(String str, FilterColumnDTO filterDTO) {
-        switch (str) {
-            case "EQ" -> {
-                return "= " + filterDTO.getValue();
-            }
-            case "NOT_EQ" -> {
-                return "<> " + filterDTO.getValue();
-            }
-            case "CONTAINS" -> {
-                return "iLike '%" + filterDTO.getValue() + "%'";
-            }
-            case "NOT_CONTAINS" -> {
-                return "not iLike '%" + filterDTO.getValue() + "%'";
-            }
-            case "GTE" -> {
-                return ">= " + filterDTO.getValue();
-            }
-            case "GT" -> {
-                return "> " + filterDTO.getValue();
-            }
-            case "LTE" -> {
-                return "<= " + filterDTO.getValue();
-            }
-            case "LT" -> {
-                return "< " + filterDTO.getValue();
-            }
-            case "RA" -> {
-                return "between " + filterDTO.getFrom() + " and " + filterDTO.getTill();
-            }
-        }
-        throw RestException.restThrow(str + " condition not found", HttpStatus.NOT_FOUND);
+    private String conditionType(ConditionTypeEnum con, FilterColumnDTO filterDTO) {
+        return switch (con) {
+            case EQ -> "= " + filterDTO.getValue();
+            case NOT_EQ -> "<> " + filterDTO.getValue();
+            case CONTAINS -> "iLike '%" + filterDTO.getValue() + "%'";
+            case NOT_CONTAINS -> "not iLike '%" + filterDTO.getValue() + "%'";
+            case GTE -> ">= " + filterDTO.getValue();
+            case GT -> "> " + filterDTO.getValue();
+            case LTE -> "<= " + filterDTO.getValue();
+            case LT -> "< " + filterDTO.getValue();
+            case RA -> "between " + filterDTO.getFrom() + " and " + filterDTO.getTill();
+        };
     }
-
 }
