@@ -6,6 +6,8 @@ import org.example.condigbat.entity.UserProblem;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
+import java.util.Optional;
+
 public interface UserProblemRepository
         extends JpaRepository<UserProblem, Long> {
 
@@ -25,6 +27,5 @@ public interface UserProblemRepository
     Long countAllByProblem_Id(Long id);
 
 
-
-
+    Optional<UserProblem> getByUserIdAndProblemId(Integer userId, Integer problemId);
 }
