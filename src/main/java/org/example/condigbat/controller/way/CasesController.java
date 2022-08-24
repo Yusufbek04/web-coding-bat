@@ -3,6 +3,7 @@ package org.example.condigbat.controller.way;
 import org.example.condigbat.payload.AddCaseDTO;
 import org.example.condigbat.payload.ApiResult;
 import org.example.condigbat.payload.CaseDTO;
+import org.springframework.context.annotation.Scope;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
