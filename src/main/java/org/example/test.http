@@ -1,3 +1,2 @@
- GET localhost:2505/problem/list
+GET localhost:2505/user-problem/get-user-problem?userId=1&problemId=1
 Content-Type: application/json
-

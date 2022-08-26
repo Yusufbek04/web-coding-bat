@@ -13,5 +13,7 @@ public interface UserRepository extends JpaRepository<User,Integer> {
 
     boolean existsById(Integer id);
 
+    int countById(Integer id);
+
 
 }

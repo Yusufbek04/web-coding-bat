@@ -22,6 +22,6 @@ public class Section extends AbsTitleIntegerEntity {
     @Column(nullable = false)
     private Short maxRate;
 
-    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @ManyToOne(optional = false)
     private Language language;
 }

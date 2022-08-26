@@ -24,6 +24,6 @@ public class Problem extends AbsTitleIntegerEntity {
     @Column(nullable = false)
     private String methodSignature;
 
-    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @ManyToOne(optional = false)
     private Section section;
 }

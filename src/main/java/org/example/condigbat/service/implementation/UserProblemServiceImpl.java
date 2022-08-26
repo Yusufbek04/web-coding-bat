@@ -34,20 +34,22 @@ public class UserProblemServiceImpl implements UserProblemService {
         UserProblemDTO userProblemDTO;
 
         if (byUserIdAndProblemId.isEmpty()){
+            System.out.println(problemId);
+            System.out.println("===");
+            System.out.println(problemRepository.findAll());
+            System.out.println(problemRepository.countById(problemId));
             Problem byId = problemRepository.findById(problemId).orElseThrow(() ->
                     RestException.restThrow("Problem not found", HttpStatus.NOT_FOUND));
             boolean existsById = userRepository.existsById(userId);
-            if (existsById)
+            if (!existsById)
                 throw RestException.restThrow("User not found", HttpStatus.NOT_FOUND);
             userProblemDTO = new UserProblemDTO();
             userProblemDTO.setUserId(userId);
             userProblemDTO.setProblem(byId);
             userProblemDTO.setSolution(byId.getMethodSignature());
             userProblemDTO.setSolved(false);
-        } else {
+        } else
             userProblemDTO = mapUserProblemToUserProblemDTO(byUserIdAndProblemId.get());
-        }
-
         return ApiResult.successResponse(userProblemDTO);
     }
 

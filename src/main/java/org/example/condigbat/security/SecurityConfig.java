@@ -31,23 +31,25 @@ public class SecurityConfig {
                 .authorizeHttpRequests(
                         auth ->
                                 auth
-                                        .antMatchers("/language/list-for-users")
-                                        .hasAnyRole("USER", "MODERATOR", "ADMIN")
-                                        .antMatchers(
-                                                HttpMethod.POST,
-                                                "/language/add",
-                                                "/language/list",
-                                                "/language/super")
-                                        .hasAnyRole("MODERATOR", "ADMIN")
-                                        .antMatchers(HttpMethod.PUT,
-                                                "/**")
-                                        .hasAnyRole("MODERATOR", "ADMIN")
                                         .antMatchers("/**")
-                                        .hasRole("ADMIN")
+                                        .permitAll()
+                                        .anyRequest()
+                                        .authenticated()
+//                                        .antMatchers("/language/list-for-users")
+//                                        .hasAnyRole("USER", "MODERATOR", "ADMIN")
+//                                        .antMatchers(
+//                                                HttpMethod.POST,
+//                                                "/language/add",
+//                                                "/language/list",
+//                                                "/language/super")
+//                                        .hasAnyRole("MODERATOR", "ADMIN")
+//                                        .antMatchers(HttpMethod.PUT,
+//                                                "/**")
+//                                        .hasAnyRole("MODERATOR", "ADMIN")
+//                                        .antMatchers("/**")
+//                                        .hasRole("ADMIN")
 
                 )
-                .csrf()
-                .disable()
                 .httpBasic(withDefaults());
         return http.build();
     }
